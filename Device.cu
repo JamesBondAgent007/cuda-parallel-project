@@ -29,51 +29,54 @@ __global__ void basicDilation(int* srcImg , int* dstImg , int srcImgCols , int d
 	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd
 	int paddingLeft = (SEcols-1)/2;
 
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
-	int min = srcImg[(y + paddingTop) * srcImgCols + (x + paddingLeft)];
+	int min = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)];
 
-	if(y < dstImgRows && x < dstImgCols) // See professor's slides to understand this check
+	if(ty < dstImgRows && tx < dstImgCols) // Checking idle threads
 	{
 		for(int i=0 ; i<SErows ; i++)
 		{
 			for (int j=0 ; j<SEcols ; j++)
 			{
-				int current = srcImg[(y+i) * srcImgCols + (x+j)];
+				int current = srcImg[(ty+i) * srcImgCols + (tx+j)];
 				if (current < min)
 					min = current;
 			}
 		}
 	}
 
-	dstImg[y * dstImgCols + x] = min;
+	dstImg[ty * dstImgCols + tx] = min;
 
 };
 
-__global__ void basicErosion(int* srcImg , int* dstImg , int srcImgCols , int dstImgCols ,
+__global__ void basicErosion(int* srcImg , int* dstImg , int srcImgCols , int dstImgRows , int dstImgCols ,
 							 int SErows , int SEcols)
 {
 
 	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd
 	int paddingLeft = (SEcols-1)/2;
 
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
-	int max = srcImg[(y + paddingTop) * srcImgCols + (x + paddingLeft)];
+	int max = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)];
 
-	for(int i=0 ; i<SErows ; i++)
+	if(ty < dstImgRows && tx < dstImgCols) // Checking idle threads
 	{
-		for (int j=0 ; j<SEcols ; j++)
+		for(int i=0 ; i<SErows ; i++)
 		{
-			int current = srcImg[(y+i+paddingTop) * srcImgCols + (x+j+paddingLeft)];
-			if (current > max)
-				max = current;
+			for (int j=0 ; j<SEcols ; j++)
+			{
+				int current = srcImg[(ty+i+paddingTop) * srcImgCols + (tx+j+paddingLeft)];
+				if (current > max)
+					max = current;
+			}
 		}
 	}
 
-	dstImg[y * dstImgCols + x] = max;
+	dstImg[ty * dstImgCols + tx] = max;
 
 };
 
@@ -94,7 +97,7 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 	SAFE_CALL(cudaMemcpy(devImmergedImgPtr , immergedImg.ptr() , immergedImgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	// Launching kernel(s)
-	dim3 gridDim(ceil(immergedImg.rows/32.0) , ceil(immergedImg.cols/32.0) , 1);
+	dim3 gridDim(ceil(img.rows/32.0) , ceil(img.cols/32.0) , 1);
 	dim3 blockDim(32 , 32 , 1); // Using max thread number
 
 	if(choice == 0)
@@ -114,14 +117,13 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 		basicErosion<<<gridDim , blockDim>>>(devImmergedImgPtr ,
 				  	  	  	  	  	  	  	 devImgPtr ,
 				  	  	  	  	  	  	  	 immergedImg.cols ,
+				  	  	  	  	  	  	  	 img.rows ,
 				  	  	  	  	  	  	  	 img.cols ,
 				  	  	  	  	  	  	  	 SErows ,
 				  	  	  	  	  	  	  	 SEcols);
 
 		SAFE_CALL(cudaDeviceSynchronize(),"Kernel Launch Failed");
 	}
-
-	// Use devImgPtr here to display result
 
 	SAFE_CALL(cudaMemcpy(img.ptr() , devImgPtr , imgSize ,cudaMemcpyDeviceToHost),"CUDA Memcpy Host To Device Failed");
 
