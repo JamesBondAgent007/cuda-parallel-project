@@ -29,35 +29,53 @@ __global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , i
 	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd, can't call floor() from Device
 	int paddingLeft = (SEcols-1)/2;
 
-	int tx = blockIdx.x * blockDim.x + threadIdx.x;
-	int ty = blockIdx.y * blockDim.y + threadIdx.y;
+	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if(ty >= dstImgRows || tx >= dstImgCols)return;
 
 	uchar min = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)]; // Selecting SE central element
 
-	if(ty < dstImgRows && tx < dstImgCols) // Checking idle threads
+	for(int i=0 ; i<SErows ; i++)
 	{
-		for(int i=0 ; i<SErows ; i++)
+		for (int j=0 ; j<SEcols ; j++)
 		{
-			for (int j=0 ; j<SEcols ; j++)
-			{
-				uchar current = srcImg[(ty+i) * srcImgCols + (tx+j)];
-				if (current < min)
-					min = current;
-			}
+			uchar current = srcImg[(ty+i) * srcImgCols + (tx+j)];
+			if (current < min)
+				min = current;
 		}
 	}
 
 	dstImg[ty * dstImgCols + tx] = min;
 
-	//__syncthreads();
-
 };
 
-// See Dilation for comments
 __global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols ,
-							 int SErows , int SEcols)
+		  	  	  	  	  	 int SErows , int SEcols)
 {
-	// TODO: Copy Dilation code after successful tests
+
+	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd, can't call floor() from Device
+	int paddingLeft = (SEcols-1)/2;
+
+	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if(ty >= dstImgRows || tx >= dstImgCols)return;
+
+	uchar max = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)]; // Selecting SE central element
+
+	for(int i=0 ; i<SErows ; i++)
+	{
+		for (int j=0 ; j<SEcols ; j++)
+		{
+			uchar current = srcImg[(ty+i) * srcImgCols + (tx+j)];
+			if (current > max)
+				max = current;
+		}
+	}
+
+	dstImg[ty * dstImgCols + tx] = max;
+
 };
 
 // Wrapper function: choice = 0 -> Dilation
@@ -77,8 +95,9 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 	SAFE_CALL(cudaMemcpy(devImmergedImgPtr , immergedImg.ptr() , immergedImgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	// Launching kernel(s)
-	dim3 gridDim(ceil(img.rows/32.0) , ceil(img.cols/32.0) , 1);
+	// Mysteriously Dim3 is structured like this (cols , rows , depth)
 	dim3 blockDim(32 , 32 , 1); // Using max threads number
+	dim3 gridDim((img.cols + blockDim.x - 1)/blockDim.x , (img.rows + blockDim.y - 1)/blockDim.y , 1);
 
 	if(choice == 0)
 	{
@@ -90,22 +109,22 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 											  SErows ,
 											  SEcols);
 	}
-//	else
-//	{
-//		basicErosion<<<gridDim , blockDim>>>(devImmergedImgPtr ,
-//				  	  	  	  	  	  	  	 devImgPtr ,
-//				  	  	  	  	  	  	  	 immergedImg.cols ,
-//				  	  	  	  	  	  	  	 img.rows ,
-//				  	  	  	  	  	  	  	 img.cols ,
-//				  	  	  	  	  	  	  	 SErows ,
-//				  	  	  	  	  	  	  	 SEcols);
-//	}
+	else
+	{
+		basicErosion<<<gridDim , blockDim>>>(devImmergedImgPtr ,
+				  	  	  	  	  	  	  	 devImgPtr ,
+				  	  	  	  	  	  	  	 immergedImg.cols ,
+				  	  	  	  	  	  	  	 img.rows ,
+				  	  	  	  	  	  	  	 img.cols ,
+				  	  	  	  	  	  	  	 SErows ,
+				  	  	  	  	  	  	  	 SEcols);
+	}
 
 	// Checking for Kernel launch errors
-	SAFE_CALL(cudaDeviceSynchronize(),"Kernel Launch Failed");
+	SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");
 
 	// Retrieving result
-	SAFE_CALL(cudaMemcpy(img.ptr() , devImgPtr , imgSize ,cudaMemcpyDeviceToHost),"CUDA Memcpy Host To Device Failed");
+	SAFE_CALL(cudaMemcpy(img.ptr() , devImgPtr , imgSize ,cudaMemcpyDeviceToHost) , "CUDA Memcpy Host To Device Failed");
 
 	// Freeing device
 	SAFE_CALL(cudaFree(devImgPtr) , "CUDA Free Failed");
