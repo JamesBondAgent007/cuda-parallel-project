@@ -32,18 +32,20 @@ Mat immerge(const Mat& img , int paddingTop , int paddingLeft , int initValue)
 int main(int argc , char** argv)
 {
 
-	// No need of an actual matrix SE, it's only about selecting a min or max.
+	// No need for an actual matrix SE, it's only about selecting a min or max.
 	int SErows = 7;
 	int SEcols = 7;
 
 	int paddingTop = floor(SErows/2);
 	int paddingLeft = floor(SEcols/2);
 
-	Mat img = imread("/Users/Mr_Holmes/Development/ClionProjects/parallel-project/img.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
+	Mat img = imread("/Users/Mr_Holmes/Development/NsightProjects/cuda-parallel-project/img.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
 	Mat immergedImg = immerge(img , paddingTop , paddingLeft , 255); // 255 cause dilation is always executed first
 
-	int choice = 0; // 0 = Dilation, altirmenti = Erosion
+	int choice = 0; // 0 = Dilation, otherwise = Erosion
 
 	launchKernel(img , immergedImg , SErows , SEcols , choice);
+
+	return 0;
 
 }
