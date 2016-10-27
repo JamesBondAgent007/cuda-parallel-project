@@ -11,6 +11,6 @@
 #ifndef DEVICE_H_
 #define DEVICE_H_
 
-void launchKernel(cv::Mat& img , cv::Mat& immergedImg , int SErows , int SEcols , int choice);
+cv::Mat launchKernel(cv::Mat& img , cv::Mat& immergedImg , int choice);
 
 #endif /* DEVICE_H_ */

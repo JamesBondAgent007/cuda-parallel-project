@@ -4,17 +4,23 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CU_SRCS += \
-../Device.cu 
+../Device.cu \
+../Device2.cu \
+../Device3.cu 
 
 CPP_SRCS += \
 ../Host.cpp 
 
 OBJS += \
 ./Device.o \
+./Device2.o \
+./Device3.o \
 ./Host.o 
 
 CU_DEPS += \
-./Device.d 
+./Device.d \
+./Device2.d \
+./Device3.d 
 
 CPP_DEPS += \
 ./Host.d 

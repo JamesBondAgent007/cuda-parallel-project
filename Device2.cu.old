@@ -1,0 +1,162 @@
+// Convolution using Shared Memory and Halo Element
+
+#include <iostream>
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+
+#include <cuda_runtime.h>
+
+using namespace std;
+using namespace cv;
+
+// Cuda error handler
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
+{
+	if(err!=cudaSuccess)
+	{
+		fprintf(stderr,"%s\n\nFile: %s\n\nLine Number: %d\n\nReason: %s\n",msg,file_name,line_number,cudaGetErrorString(err));
+		std::cin.get();
+		exit(EXIT_FAILURE);
+	}
+}
+
+#define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
+
+
+// srcImg is the image with padding, dstImg is without padding
+__global__ void sharedMemDilation(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols ,
+							  	  int SErows , int SEcols)
+{
+
+	const int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd, can't call floor() from Device
+	const int paddingLeft = (SEcols-1)/2;
+
+	const int tileW = 32; // = blockDim.x, has to be set manually before compilation
+	const int tileH = 32; // TODO: declare as global const variable
+	const int SEw = 7;
+	const int SEh = 7;
+
+	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
+
+	__shared__ uchar srcImg_ds[(tileH + SEh - 1) * (tileW + SEw - 1)]; // Requires const size to initialize
+
+	int cols = tileW + SEw - 1; // Number of columns of the Tile + Halo
+
+	// Checking Halo elements
+	int halo_index_left = (blockIdx.x - 1) * blockDim.x + threadIdx.x;
+	int halo_index_top = (blockIdx.y - 1) * blockDim.y + threadIdx.y;
+	int halo_index_right = (blockIdx.x + 1) * blockDim.x + threadIdx.x;
+	int halo_index_bottom = (blockIdx.y + 1) * blockDim.y + threadIdx.y;
+
+	if(threadIdx.x >= (blockDim.x - paddingLeft))
+	{
+		srcImg_ds[(threadIdx.y) * cols + (threadIdx.x - (blockDim.x - paddingLeft))] =
+				(halo_index_left < 0) ? 255 : srcImg[ty * srcImgCols + halo_index_left];
+
+	}
+	if(threadIdx.y >= (blockDim.y - paddingTop))
+	{
+		srcImg_ds[(threadIdx.y - (blockDim.y - paddingTop)) * cols + (threadIdx.x)] =
+				(halo_index_top < 0) ? 255 : srcImg[halo_index_top * srcImgCols + tx];
+	}
+
+
+	srcImg_ds[(threadIdx.y + paddingTop) * cols + (threadIdx.x + paddingLeft)] = srcImg[ty * srcImgCols + tx]; // Copying tile elements
+
+
+	if(threadIdx.x < paddingLeft)
+	{
+		srcImg_ds[(threadIdx.y) * cols + (paddingLeft + blockDim.x + threadIdx.x)] =
+				(halo_index_right >= srcImgCols) ? 255 : srcImg[ty * srcImgCols + halo_index_right];
+	}
+	if(threadIdx.y < paddingTop)
+	{
+		srcImg_ds[(paddingTop + blockDim.y + threadIdx.y) * cols + (threadIdx.x)] =
+				(halo_index_bottom >= srcImgRows) ? 255 : srcImg[halo_index_bottom * srcImgCols + tx];
+	}
+
+	__syncthreads();
+
+	// Applying SE
+	if(ty >= srcImgRows || tx >= srcImgCols)return;
+
+	uchar min = srcImg_ds[(threadIdx.y + paddingTop) * cols + (threadIdx.x + paddingLeft)]; // Selecting SE central element
+
+	for(int i=0 ; i<SErows ; i++)
+	{
+		for(int j=0 ; j<SEcols ; j++)
+		{
+			uchar current = srcImg_ds[(threadIdx.y + i) * cols + (threadIdx.x + j)];
+			if(current < min)
+				min = current;
+		}
+	}
+
+	dstImg[ty * srcImgCols + tx] = min;
+
+//	dstImg[ty * srcImgCols + tx] = srcImg_ds[(threadIdx.y + paddingTop) * cols + (threadIdx.x + paddingLeft)];
+
+};
+
+
+__global__ void sharedMemErosion()
+{
+
+
+
+};
+
+
+// Wrapper function: choice = 0 -> Dilation
+Mat launchKernel2(Mat& input , Mat& output , int SErows , int SEcols , int choice)
+{
+
+	// Allocating stuff on GPU
+	uchar* devInputPtr;
+	uchar* devOutputPtr;
+	int imgSize = input.rows*input.cols*sizeof(uchar); // input and output size are the same
+
+	SAFE_CALL(cudaMalloc((void**)&devInputPtr , imgSize) , "CUDA Malloc Failed");
+	SAFE_CALL(cudaMemcpy(devInputPtr , input.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
+
+	SAFE_CALL(cudaMalloc((void**)&devOutputPtr , imgSize) , "CUDA Malloc Failed");
+	SAFE_CALL(cudaMemcpy(devOutputPtr , output.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
+
+	// Launching kernel(s)
+	// Mysteriously Dim3 is structured like this (cols , rows , depth)
+	dim3 blockDim(32 , 32 , 1); // Using max threads number
+	dim3 gridDim((input.cols + blockDim.x - 1)/blockDim.x , (input.rows + blockDim.y - 1)/blockDim.y , 1);
+
+	if(choice == 0)
+	{
+		// ------------------------------START TIMER HERE------------------------------------
+
+		sharedMemDilation<<<gridDim , blockDim>>>(devInputPtr ,
+											  	  devOutputPtr ,
+											  	  input.rows ,
+											  	  input.cols ,
+											  	  SErows ,
+											  	  SEcols);
+	}
+//	else
+//	{
+//		sharedMemErosion<<<gridDim , blockDim>>>();
+//	}
+
+	// Checking for Kernel launch errors and wait for Device job to be done.
+	SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");
+
+	// ----------------------------------END TIMER HERE--------------------------------------
+
+	// Retrieving result
+	SAFE_CALL(cudaMemcpy(output.ptr() , devOutputPtr , imgSize ,cudaMemcpyDeviceToHost) , "CUDA Memcpy Host To Device Failed");
+
+	// Freeing device
+	SAFE_CALL(cudaFree(devOutputPtr) , "CUDA Free Failed");
+	SAFE_CALL(cudaFree(devInputPtr) , "CUDA Free Failed");
+
+	return output;
+
+}

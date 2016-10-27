@@ -1,3 +1,6 @@
+// Basic parallel convolution (slowest)
+
+
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
@@ -7,6 +10,10 @@
 
 using namespace std;
 using namespace cv;
+
+#define SE_WIDTH 7 // It's always odd
+#define SE_RADIUS (SE_WIDTH - 1)/2
+#define GRID_DIM 32
 
 // Cuda error handler
 static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
@@ -21,24 +28,21 @@ static inline void _safe_cuda_call(cudaError err, const char* msg, const char* f
 
 #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
-// srcImg is the image with padding, dstImg is without padding
-__global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols ,
-							  int SErows , int SEcols)
-{
 
-	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd, can't call floor() from Device
-	int paddingLeft = (SEcols-1)/2;
+// srcImg is the image with padding, dstImg is without padding
+__global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols)
+{
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if(ty >= dstImgRows || tx >= dstImgCols)return;
 
-	uchar min = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)]; // Selecting SE central element
+	uchar min = srcImg[(ty + SE_RADIUS) * srcImgCols + (tx + SE_RADIUS)]; // Selecting SE central element
 
-	for(int i=0 ; i<SErows ; i++)
+	for(int i=0 ; i<SE_RADIUS ; i++)
 	{
-		for (int j=0 ; j<SEcols ; j++)
+		for (int j=0 ; j<SE_RADIUS ; j++)
 		{
 			uchar current = srcImg[(ty+i) * srcImgCols + (tx+j)];
 			if (current < min)
@@ -50,23 +54,20 @@ __global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , i
 
 };
 
-__global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols ,
-		  	  	  	  	  	 int SErows , int SEcols)
-{
 
-	int paddingTop = (SErows-1)/2; // SErows and SEcols are assumed odd, can't call floor() from Device
-	int paddingLeft = (SEcols-1)/2;
+__global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols)
+{
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if(ty >= dstImgRows || tx >= dstImgCols)return;
 
-	uchar max = srcImg[(ty + paddingTop) * srcImgCols + (tx + paddingLeft)]; // Selecting SE central element
+	uchar max = srcImg[(ty + SE_RADIUS) * srcImgCols + (tx + SE_RADIUS)]; // Selecting SE central element
 
-	for(int i=0 ; i<SErows ; i++)
+	for(int i=0 ; i<SE_RADIUS ; i++)
 	{
-		for (int j=0 ; j<SEcols ; j++)
+		for (int j=0 ; j<SE_RADIUS ; j++)
 		{
 			uchar current = srcImg[(ty+i) * srcImgCols + (tx+j)];
 			if (current > max)
@@ -78,8 +79,9 @@ __global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , in
 
 };
 
+
 // Wrapper function: choice = 0 -> Dilation
-void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int choice)
+Mat launchKernel(Mat& img , Mat& immergedImg , int choice)
 {
 
 	// Allocating stuff on GPU
@@ -96,18 +98,18 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 
 	// Launching kernel(s)
 	// Mysteriously Dim3 is structured like this (cols , rows , depth)
-	dim3 blockDim(32 , 32 , 1); // Using max threads number
+	dim3 blockDim(GRID_DIM , GRID_DIM , 1); // Using max threads number
 	dim3 gridDim((img.cols + blockDim.x - 1)/blockDim.x , (img.rows + blockDim.y - 1)/blockDim.y , 1);
 
 	if(choice == 0)
 	{
+		// ------------------------------START TIMER HERE------------------------------------
+
 		basicDilation<<<gridDim , blockDim>>>(devImmergedImgPtr ,
 											  devImgPtr ,
 											  immergedImg.cols ,
 											  img.rows ,
-											  img.cols ,
-											  SErows ,
-											  SEcols);
+											  img.cols);
 	}
 	else
 	{
@@ -115,13 +117,13 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 				  	  	  	  	  	  	  	 devImgPtr ,
 				  	  	  	  	  	  	  	 immergedImg.cols ,
 				  	  	  	  	  	  	  	 img.rows ,
-				  	  	  	  	  	  	  	 img.cols ,
-				  	  	  	  	  	  	  	 SErows ,
-				  	  	  	  	  	  	  	 SEcols);
+				  	  	  	  	  	  	  	 img.cols);
 	}
 
-	// Checking for Kernel launch errors
+	// Checking for Kernel launch errors and wait for Device job to be done.
 	SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");
+
+	// ----------------------------------END TIMER HERE--------------------------------------
 
 	// Retrieving result
 	SAFE_CALL(cudaMemcpy(img.ptr() , devImgPtr , imgSize ,cudaMemcpyDeviceToHost) , "CUDA Memcpy Host To Device Failed");
@@ -130,7 +132,6 @@ void launchKernel(Mat& img , Mat& immergedImg , int SErows , int SEcols , int ch
 	SAFE_CALL(cudaFree(devImgPtr) , "CUDA Free Failed");
 	SAFE_CALL(cudaFree(devImmergedImgPtr) , "CUDA Free Failed");
 
-	imshow("Processed Img" , img);
-	waitKey(0);
+	return img;
 
 }
