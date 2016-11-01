@@ -156,7 +156,6 @@ Mat launchKernel2(Mat& input , Mat& output , int choice)
 	SAFE_CALL(cudaMemcpy(devInputPtr , input.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	SAFE_CALL(cudaMalloc((void**)&devOutputPtr , imgSize) , "CUDA Malloc Failed");
-	SAFE_CALL(cudaMemcpy(devOutputPtr , output.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	// Launching kernel(s)
 	// Mysteriously Dim3 is structured like this (cols , rows , depth)

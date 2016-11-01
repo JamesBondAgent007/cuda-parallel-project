@@ -37,16 +37,19 @@ int main(int argc , char** argv)
 {
 
 	int padding = floor(SE_WIDTH/2);
+	//int padding = 32;
 
-	Mat img = imread("/Users/Mr_Holmes/Development/NsightProjects/cuda-parallel-project/img.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
-	//Mat immergedImg = immerge(img , padding , 255); // 255 cause dilation is always executed first
-	Mat immergedImg = immerge(img , 0 , 0);
+	Mat img = imread("/Users/Mr_Holmes/Development/NsightProjects/cuda-parallel-project/imgRDR2.jpg" , CV_LOAD_IMAGE_GRAYSCALE);
+	Mat immergedImg = immerge(img , padding , 255); // 255 cause dilation is always executed first
+	//Mat immergedImg = immerge(img , 0 , 0);
 
 	int choice = 0; // 0 = Dilation, otherwise = Erosion
 
-	img = launchKernel(img , immergedImg , choice);
+	//img = launchKernel(img , immergedImg , choice);
 	//img = launchKernel2(img , immergedImg , choice);
+	img = launchKernel3(img , immergedImg , choice);
 
+	resize(img , img , Size(img.cols/2 , img.rows/2));
 	imshow("Processed Img" , img);
 	waitKey(0);
 

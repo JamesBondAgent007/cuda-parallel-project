@@ -1,4 +1,4 @@
-// Convolution using Shared Memory and Halo Element SIMPLIFIED VERSION
+// Convolution using Shared Memory and Halo Element NO IF VER.
 
 #include <iostream>
 
@@ -10,10 +10,10 @@
 using namespace std;
 using namespace cv;
 
-#define SE_WIDTH 7 // It's always odd
+#define SE_WIDTH 7
 #define SE_RADIUS (SE_WIDTH - 1)/2
 #define TILE_WIDTH 32
-#define w (TILE_WIDTH + SE_WIDTH - 1)
+#define w (TILE_WIDTH * 3)
 #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
 // Cuda error handler
@@ -29,59 +29,56 @@ static inline void _safe_cuda_call(cudaError err, const char* msg, const char* f
 
 
 // srcImg is the image with padding, dstImg is without padding
-__global__ void sharedMemDilationSimple(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols)
+__global__ void sharedBlockMemDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows)
 {
+
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
-	__shared__ uchar srcImg_ds[TILE_WIDTH * TILE_WIDTH];
-	srcImg_ds[threadIdx.y * TILE_WIDTH + threadIdx.x] = srcImg[ty * srcImgCols + tx];
+	const int tx_prev = (blockIdx.x - 1) * blockDim.x + threadIdx.x;
+	const int ty_prev = (blockIdx.y - 1) * blockDim.y + threadIdx.y;
+
+	const int tx_next = (blockIdx.x + 1) * blockDim.x + threadIdx.x;
+	const int ty_next = (blockIdx.y + 1) * blockDim.y + threadIdx.y;
+
+	__shared__ uchar srcImg_ds[w * w];
+
+	srcImg_ds[threadIdx.y * w + threadIdx.x] = srcImg[ty_prev * srcImgCols + tx_prev];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + threadIdx.x] = srcImg[ty * srcImgCols + tx_prev];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + threadIdx.x] = srcImg[ty_next * srcImgCols + tx_prev];
+	srcImg_ds[threadIdx.y * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty_prev * srcImgCols + tx];
+	srcImg_ds[threadIdx.y * w + (threadIdx.x + TILE_WIDTH*2)] = srcImg[ty_prev * srcImgCols + tx_next];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty * srcImgCols + tx];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + (threadIdx.x + TILE_WIDTH*2)] = srcImg[ty * srcImgCols + tx_next];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty_next * srcImgCols + tx];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + (threadIdx.x + TILE_WIDTH * 2)] = srcImg[ty_next * srcImgCols + tx_next];
 
 	__syncthreads();
 
-	int thisTileStartPointX = blockIdx.x * blockDim.x;
-	int thisTileStartPointY = blockIdx.y * blockDim.y;
-	int nextTileStartPointX = (blockIdx.x + 1) * blockDim.x;
-	int nextTileStartPointY = (blockIdx.y + 1) * blockDim.y;
-	int srcImgStartPointX = tx - SE_RADIUS;
-	int srcImgStartPointY = ty - SE_RADIUS;
+	if(ty >= dstImgRows || tx >= dstImgCols)return;
 
-	if(ty >= srcImgRows || tx >= srcImgCols)return;
-
-	uchar min = srcImg_ds[(threadIdx.y) * TILE_WIDTH + (threadIdx.x)];
+	uchar min = srcImg_ds[(threadIdx.y + TILE_WIDTH + SE_RADIUS) * w + (threadIdx.x + TILE_WIDTH + SE_RADIUS)]; // Selecting SE central element
 
 	for(int i=0 ; i<SE_RADIUS ; i++)
 	{
-		for(int j=0 ; j<SE_RADIUS ; j++)
+		for (int j=0 ; j<SE_RADIUS ; j++)
 		{
-			int srcImgX = srcImgStartPointX + j;
-			int srcImgY = srcImgStartPointY + i;
-			if(srcImgX >= 0 && srcImgX < srcImgCols && srcImgY >= 0 && srcImgY < srcImgRows)
-			{
-				uchar current;
-				if(srcImgX >= thisTileStartPointX && srcImgX < nextTileStartPointX &&
-				   srcImgY >= thisTileStartPointY && srcImgY < nextTileStartPointY)
-				{
-					current = srcImg_ds[(threadIdx.y+i) * TILE_WIDTH + threadIdx.x+j];
-				}
-				else
-				{
-					current = srcImg[srcImgY * srcImgCols + srcImgX];
-				}
-				if(current < min)
-					min = current;
-			}
+			uchar current = srcImg_ds[(threadIdx.y + TILE_WIDTH + i) * w + threadIdx.x + TILE_WIDTH +j];
+			if (current < min)
+				min = current;
 		}
 	}
 
-	dstImg[ty * srcImgCols + tx] = min;
+	dstImg[ty * dstImgCols + tx] = min;
 
 	__syncthreads();
+
+//	dstImg[ty * srcImgCols + tx] = srcImg_ds[threadIdx.y + paddingTop][threadIdx.x + paddingLeft];
 
 };
 
 
-__global__ void sharedMemErosionSimple()
+__global__ void sharedBlockMemErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows)
 {
 
 
@@ -90,19 +87,19 @@ __global__ void sharedMemErosionSimple()
 
 
 // Wrapper function: choice = 0 -> Dilation
-Mat launchKernel3(Mat& input , Mat& output , int choice)
+Mat launchKernel3(Mat& output , Mat& input , int choice)
 {
 
 	// Allocating stuff on GPU
 	uchar* devInputPtr;
 	uchar* devOutputPtr;
-	int imgSize = input.rows*input.cols*sizeof(uchar); // input and output size are the same
+	int imgSize = output.rows * output.cols * sizeof(uchar);
+	int immergedImgSize = input.rows * input.cols * sizeof(uchar);
 
-	SAFE_CALL(cudaMalloc((void**)&devInputPtr , imgSize) , "CUDA Malloc Failed");
-	SAFE_CALL(cudaMemcpy(devInputPtr , input.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
+	SAFE_CALL(cudaMalloc((void**)&devInputPtr , immergedImgSize) , "CUDA Malloc Failed");
+	SAFE_CALL(cudaMemcpy(devInputPtr , input.ptr() , immergedImgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	SAFE_CALL(cudaMalloc((void**)&devOutputPtr , imgSize) , "CUDA Malloc Failed");
-	SAFE_CALL(cudaMemcpy(devOutputPtr , output.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	// Launching kernel(s)
 	// Mysteriously Dim3 is structured like this (cols , rows , depth)
@@ -113,15 +110,20 @@ Mat launchKernel3(Mat& input , Mat& output , int choice)
 	{
 		// ------------------------------START TIMER HERE------------------------------------
 
-		sharedMemDilationSimple<<<gridDim , blockDim>>>(devInputPtr ,
+		sharedBlockMemDilation<<<gridDim , blockDim>>>(devInputPtr ,
 											  	  devOutputPtr ,
-											  	  input.rows ,
-											  	  input.cols );
+											  	  input.cols ,
+											  	  output.cols ,
+											  	  output.rows);
 	}
-//	else
-//	{
-//		sharedMemErosionSimple<<<gridDim , blockDim>>>();
-//	}
+	else
+	{
+		sharedBlockMemErosion<<<gridDim , blockDim>>>(devInputPtr ,
+												 devOutputPtr ,
+												 input.cols ,
+												 output.cols ,
+												 output.rows);
+	}
 
 	// Checking for Kernel launch errors and wait for Device job to be done.
 	SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");

@@ -91,7 +91,6 @@ Mat launchKernel(Mat& img , Mat& immergedImg , int choice)
 	int immergedImgSize = immergedImg.rows*immergedImg.cols*sizeof(uchar);
 
 	SAFE_CALL(cudaMalloc((void**)&devImgPtr , imgSize) , "CUDA Malloc Failed");
-	SAFE_CALL(cudaMemcpy(devImgPtr , img.ptr() , imgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
 
 	SAFE_CALL(cudaMalloc((void**)&devImmergedImgPtr , immergedImgSize) , "CUDA Malloc Failed");
 	SAFE_CALL(cudaMemcpy(devImmergedImgPtr , immergedImg.ptr() , immergedImgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
