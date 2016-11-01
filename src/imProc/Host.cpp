@@ -14,12 +14,11 @@ using namespace cv;
 
 #define SE_WIDTH 7 // Always odd
 
-Mat immerge(const Mat& img , int padding , int initValue)
-{
+Mat immerge(const Mat& img , int padding , int initValue) {
 
     Mat immergedImg;
 
-    immergedImg = Mat(img.rows + 2*padding , img.cols + 2*padding , CV_8UC1, initValue);
+    immergedImg = Mat(img.rows + 2*padding , img.cols + 2*padding , CV_8UC1 , initValue);
 
     for(int i = 0; i < img.rows; i++)
     {
@@ -33,8 +32,7 @@ Mat immerge(const Mat& img , int padding , int initValue)
 
 };
 
-int main(int argc , char** argv)
-{
+int main(int argc , char** argv) {
 
 	int padding = floor(SE_WIDTH/2);
 	//int padding = 32;

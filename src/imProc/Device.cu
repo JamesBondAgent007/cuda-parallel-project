@@ -16,22 +16,22 @@ using namespace cv;
 #define GRID_DIM 32
 
 // Cuda error handler
-static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
-{
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
+
 	if(err!=cudaSuccess)
 	{
 		fprintf(stderr,"%s\n\nFile: %s\n\nLine Number: %d\n\nReason: %s\n",msg,file_name,line_number,cudaGetErrorString(err));
 		std::cin.get();
 		exit(EXIT_FAILURE);
 	}
+
 }
 
 #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
 
 // srcImg is the image with padding, dstImg is without padding
-__global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols)
-{
+__global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -55,8 +55,7 @@ __global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , i
 };
 
 
-__global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols)
-{
+__global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -81,8 +80,7 @@ __global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , in
 
 
 // Wrapper function: choice = 0 -> Dilation
-Mat launchKernel(Mat& img , Mat& immergedImg , int choice)
-{
+Mat launchKernel(Mat& img , Mat& immergedImg , int choice) {
 
 	// Allocating stuff on GPU
 	uchar* devImgPtr;

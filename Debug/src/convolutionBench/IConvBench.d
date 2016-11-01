@@ -1,4 +1,5 @@
-./Host.o : ../Host.cpp \
+src/convolutionBench/IConvBench.o : ../src/convolutionBench/IConvBench.cpp \
+    ../src/convolutionBench/IConvBench.h \
     /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/iostream \
     /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/__config \
     /usr/include/unistd.h \
@@ -194,68 +195,6 @@
     /usr/include/_types/_nl_item.h \
     /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/bitset \
     /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/__bit_reference \
-    /usr/local/include/opencv2/opencv.hpp \
-    /usr/local/include/opencv2/core/core_c.h \
-    /usr/local/include/opencv2/core/types_c.h \
-    /usr/include/assert.h \
-    /Library/Developer/CommandLineTools/usr/bin/../lib/clang/7.0.2/include/float.h \
-    /Library/Developer/CommandLineTools/usr/bin/../lib/clang/7.0.2/include/emmintrin.h \
-    /Library/Developer/CommandLineTools/usr/bin/../lib/clang/7.0.2/include/xmmintrin.h \
-    /Library/Developer/CommandLineTools/usr/bin/../lib/clang/7.0.2/include/mmintrin.h \
-    /Library/Developer/CommandLineTools/usr/bin/../lib/clang/7.0.2/include/mm_malloc.h \
-    /usr/include/math.h \
-    /usr/local/include/opencv2/core/core.hpp \
-    /usr/local/include/opencv2/core/version.hpp \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/cmath \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/complex \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/sstream \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/map \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/__tree \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/vector \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/__split_buffer \
-    /usr/local/include/opencv2/core/operations.hpp \
-    /usr/local/include/opencv2/core/mat.hpp \
-    /usr/local/include/opencv2/flann/miniflann.hpp \
-    /usr/local/include/opencv2/flann/defines.h \
-    /usr/local/include/opencv2/flann/config.h \
-    /usr/local/include/opencv2/imgproc/imgproc_c.h \
-    /usr/local/include/opencv2/imgproc/types_c.h \
-    /usr/local/include/opencv2/imgproc/imgproc.hpp \
-    /usr/local/include/opencv2/photo/photo.hpp \
-    /usr/local/include/opencv2/photo/photo_c.h \
-    /usr/local/include/opencv2/video/video.hpp \
-    /usr/local/include/opencv2/video/tracking.hpp \
-    /usr/local/include/opencv2/video/background_segm.hpp \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/list \
-    /usr/local/include/opencv2/features2d/features2d.hpp \
-    /usr/local/include/opencv2/objdetect/objdetect.hpp \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/deque \
-    /usr/local/include/opencv2/calib3d/calib3d.hpp \
-    /usr/local/include/opencv2/core/affine.hpp \
-    /usr/local/include/opencv2/ml/ml.hpp \
-    /usr/local/include/opencv2/highgui/highgui_c.h \
-    /usr/local/include/opencv2/highgui/highgui.hpp \
-    /usr/local/include/opencv2/contrib/contrib.hpp \
-    /usr/local/include/opencv2/contrib/retina.hpp \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/valarray \
-    /usr/local/include/opencv2/contrib/openfabmap.hpp \
-    /Library/Developer/CommandLineTools/usr/bin/../include/c++/v1/set \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/cuda_runtime.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/host_config.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/builtin_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/device_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/host_defines.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/driver_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/surface_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/texture_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/vector_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/library_types.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/channel_descriptor.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/cuda_runtime_api.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/cuda_device_runtime_api.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/driver_functions.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/vector_functions.h \
-    /Developer/NVIDIA/CUDA-7.5/bin/../include/vector_functions.hpp \
-    ../Device.h \
-    ../Device2.h \
-    ../Device3.h
+    ../src/convolutionBench/../utils/utils.h \
+    ../src/convolutionBench/../utils/TimeProfiler.h \
+    /usr/include/sys/time.h

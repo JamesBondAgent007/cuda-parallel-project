@@ -1,4 +1,4 @@
-./Device2.o : ../Device2.cu \
+src/imProc/Device3.o : ../src/imProc/Device3.cu \
     /Developer/NVIDIA/CUDA-7.5/bin/../include/cuda_runtime.h \
     /Developer/NVIDIA/CUDA-7.5/bin/../include/host_config.h \
     /Developer/NVIDIA/CUDA-7.5/bin/../include/builtin_types.h \

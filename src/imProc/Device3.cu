@@ -17,20 +17,20 @@ using namespace cv;
 #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
 // Cuda error handler
-static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
-{
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
+
 	if(err!=cudaSuccess)
 	{
 		fprintf(stderr,"%s\n\nFile: %s\n\nLine Number: %d\n\nReason: %s\n",msg,file_name,line_number,cudaGetErrorString(err));
 		std::cin.get();
 		exit(EXIT_FAILURE);
 	}
+
 }
 
 
 // srcImg is the image with padding, dstImg is without padding
-__global__ void sharedBlockMemDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows)
-{
+__global__ void sharedBlockMemDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -73,22 +73,57 @@ __global__ void sharedBlockMemDilation(uchar* srcImg , uchar* dstImg , int srcIm
 
 	__syncthreads();
 
-//	dstImg[ty * srcImgCols + tx] = srcImg_ds[threadIdx.y + paddingTop][threadIdx.x + paddingLeft];
-
 };
 
 
-__global__ void sharedBlockMemErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows)
-{
+__global__ void sharedBlockMemErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgCols , int dstImgRows) {
 
+	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
 
+	const int tx_prev = (blockIdx.x - 1) * blockDim.x + threadIdx.x;
+	const int ty_prev = (blockIdx.y - 1) * blockDim.y + threadIdx.y;
+
+	const int tx_next = (blockIdx.x + 1) * blockDim.x + threadIdx.x;
+	const int ty_next = (blockIdx.y + 1) * blockDim.y + threadIdx.y;
+
+	__shared__ uchar srcImg_ds[w * w];
+
+	srcImg_ds[threadIdx.y * w + threadIdx.x] = srcImg[ty_prev * srcImgCols + tx_prev];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + threadIdx.x] = srcImg[ty * srcImgCols + tx_prev];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + threadIdx.x] = srcImg[ty_next * srcImgCols + tx_prev];
+	srcImg_ds[threadIdx.y * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty_prev * srcImgCols + tx];
+	srcImg_ds[threadIdx.y * w + (threadIdx.x + TILE_WIDTH*2)] = srcImg[ty_prev * srcImgCols + tx_next];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty * srcImgCols + tx];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH) * w + (threadIdx.x + TILE_WIDTH*2)] = srcImg[ty * srcImgCols + tx_next];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + (threadIdx.x + TILE_WIDTH)] = srcImg[ty_next * srcImgCols + tx];
+	srcImg_ds[(threadIdx.y + TILE_WIDTH * 2) * w + (threadIdx.x + TILE_WIDTH * 2)] = srcImg[ty_next * srcImgCols + tx_next];
+
+	__syncthreads();
+
+	if(ty >= dstImgRows || tx >= dstImgCols)return;
+
+	uchar max = srcImg_ds[(threadIdx.y + TILE_WIDTH + SE_RADIUS) * w + (threadIdx.x + TILE_WIDTH + SE_RADIUS)]; // Selecting SE central element
+
+	for(int i=0 ; i<SE_RADIUS ; i++)
+	{
+		for (int j=0 ; j<SE_RADIUS ; j++)
+		{
+			uchar current = srcImg_ds[(threadIdx.y + TILE_WIDTH + i) * w + threadIdx.x + TILE_WIDTH +j];
+			if (current > max)
+				max = current;
+		}
+	}
+
+	dstImg[ty * dstImgCols + tx] = max;
+
+	__syncthreads();
 
 };
 
 
 // Wrapper function: choice = 0 -> Dilation
-Mat launchKernel3(Mat& output , Mat& input , int choice)
-{
+Mat launchKernel3(Mat& output , Mat& input , int choice) {
 
 	// Allocating stuff on GPU
 	uchar* devInputPtr;

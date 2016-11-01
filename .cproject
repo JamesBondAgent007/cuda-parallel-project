@@ -30,6 +30,7 @@
 								<option id="nvcc.compiler.include.paths.1050582949" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/local/Cellar/opencv/2.4.12_2/include/opencv"/>
 								</option>
+								<option id="com.nvidia.cuda.ide.build.option1.1913383750" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.option1" value="" valueType="string"/>
 								<inputType id="nvcc.compiler.input.cu.239876634" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.626682143" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.703149873" superClass="nvcc.compiler.input.c"/>

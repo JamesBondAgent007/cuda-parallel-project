@@ -17,20 +17,19 @@ using namespace cv;
 #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
 // Cuda error handler
-static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number)
-{
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
+
 	if(err!=cudaSuccess)
 	{
 		fprintf(stderr,"%s\n\nFile: %s\n\nLine Number: %d\n\nReason: %s\n",msg,file_name,line_number,cudaGetErrorString(err));
 		std::cin.get();
 		exit(EXIT_FAILURE);
 	}
+
 }
 
 
-// srcImg is the image with padding, dstImg is without padding
-__global__ void sharedMemDilation(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols)
-{
+__global__ void sharedMemDilation(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -82,13 +81,10 @@ __global__ void sharedMemDilation(uchar* srcImg , uchar* dstImg , int srcImgRows
 
 	__syncthreads();
 
-//	dstImg[ty * srcImgCols + tx] = srcImg_ds[threadIdx.y + paddingTop][threadIdx.x + paddingLeft];
-
 };
 
 
-__global__ void sharedMemErosion(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols)
-{
+__global__ void sharedMemErosion(uchar* srcImg , uchar* dstImg , int srcImgRows, int srcImgCols) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -144,8 +140,7 @@ __global__ void sharedMemErosion(uchar* srcImg , uchar* dstImg , int srcImgRows,
 
 
 // Wrapper function: choice = 0 -> Dilation
-Mat launchKernel2(Mat& input , Mat& output , int choice)
-{
+Mat launchKernel2(Mat& input , Mat& output , int choice) {
 
 	// Allocating stuff on GPU
 	uchar* devInputPtr;
