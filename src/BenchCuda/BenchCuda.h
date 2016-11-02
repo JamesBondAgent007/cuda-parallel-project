@@ -23,6 +23,10 @@ private:
      
     // Cuda error handler
     //static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number);
+    uchar* immerge(const uchar* img, int rows, int cols, int paddingTop , int paddingLeft , uchar initValue);
+    uchar* cloneImg(const uchar* img, int rows, int cols);
+    void imshow(string message, uchar* img, int rows, int cols);
+
 
     bool imgLoaded = false;
     bool imgProcessed = false;
@@ -31,65 +35,82 @@ private:
 
 
 
-protected:
-    StructuringElement SE = StructuringElement(1,1);
-    Image originalImage = Image(1,1,0);
-    Image benchImage = Image(1,1,0);
-    Image immergedImg = Image(1,1,0);
 
+protected:
+
+    uint seWidth;
+    uint seHeight;
+
+
+    std::string imgPath;
+
+    uchar* devProcImg; // on GPU
+    uchar* procImg = nullptr;
+    uchar* img = nullptr;
+    uint imgWidth;
+    uint imgHeight;
+
+
+    uchar* devImmergedImg;  // on GPU
+    uchar* immergedImg = nullptr;
+    uint immergedImgWidth;
+    uint immergedImgHeight;
+
+
+
+    uint nThreads = 0;
 
 public:
 
     BenchCuda() {}
 
     virtual void init(std::string imgPath, uint threads, uint se_width, uint se_height, bool useThreadsAsDivisor) override {
-        SE = StructuringElement(se_width, se_height);
+        seWidth = se_width;
+        seHeight = se_height;
 
-        originalImage = Image(imgPath);
-        if(useThreadsAsDivisor)
-            originalImage.setThreads(threads / originalImage.rows());
-        else originalImage.setThreads(threads);
+        // useThreadsAsDivisor unused: deprecated
+        originalImage.setThreads(threads);
         this->nThreads = originalImage.getThreads();
-        benchImage = Image(originalImage);
         this->imgPath = imgPath;
 
+        cv::mat imgCV = imread(imgPath, CV_LOAD_IMAGE_GRAYSCALE);
+        imgWidth = imgCV.cols;
+        imgHeight = imgCV.rows;
+        img = imgCV.data;
         imgLoaded = true;
     }
 
     virtual void showOriginalImg()  {
-        if(imgLoaded) originalImage.imshow("Original Image");
+        if(img != nullptr)
+            imshow("Original Image", img, imgHeight, imgWidth);
     };
     virtual void showProcessedImg() override {
-        if(imgLoaded)
+        if(img != nullptr)
         {
-            // enabling this check, we will show the image after ALL the processing.
-            // disabling this check, we always make a new processing af a copy of the original image before showing
-            // if(imgProcessed == false)
-            {
-                benchImage = Image(originalImage);
-                run();
-            }
-            benchImage.imshow("Processed Image");
+            if(procImg != null)
+                delete[] procImg;
+
+            procImg = cloneImg(img, imgHeight, imgWidth);
+            run();
+            imshow("Processed Image", procImg, imgHeight, imgWidth);
         }
     }
 
-   
-
 
     virtual const uint getSeWidth() const override {
-        return SE.cols();
+        if(img != nullptr) return seWidth;
+        else return 0;
     }
     virtual const uint getSeHeight() const override {
-        return SE.rows();
+        if(img != nullptr) return seHeight;
+        else return 0;
     }
     virtual const uint getImgWidth() const override {
-        if(imgLoaded)
-            return originalImage.cols();
+        if(img != nullptr) return imgWidth;
         else return 0;
     }
     virtual const uint getImgHeight() const override {
-        if(imgLoaded)
-            return originalImage.rows();
+        if(img != nullptr) return imgHeight;
         else return 0;
     }
 
@@ -103,46 +124,9 @@ public:
     
     
     
-     virtual  void onPreRun() override {
-        benchImage = Image(originalImage);
-        // TODO: check if ok: get your data from benchImage to CUDA memory!
-        
-        immergedImg = immerge(benchImage , padding , 255); // 255 cause dilation is always executed first
-	
-        // Allocating stuff on GPU
-	uchar* devImgPtr;
-	uchar* devImmergedImgPtr;
-	int imgSize = benchImage.rows*benchImage.cols*sizeof(uchar);
-	int immergedImgSize = immergedImg.rows*immergedImg.cols*sizeof(uchar);
-
-	SAFE_CALL(cudaMalloc((void**)&devImgPtr , imgSize) , "CUDA Malloc Failed");
-
-	SAFE_CALL(cudaMalloc((void**)&devImmergedImgPtr , immergedImgSize) , "CUDA Malloc Failed");
-	SAFE_CALL(cudaMemcpy(devImmergedImgPtr , immergedImg.ptr() , immergedImgSize , cudaMemcpyHostToDevice) , "CUDA Memcpy Host To Device Failed");
-
-	// Launching kernel(s)
-	// Mysteriously Dim3 is structured like this (cols , rows , depth)
-	dim3 blockDim(GRID_DIM , GRID_DIM , 1); // Using max threads number
-	dim3 gridDim((benchImage.cols + blockDim.x - 1)/blockDim.x , (benchImage.rows + blockDim.y - 1)/blockDim.y , 1);
-
-        
-    }
-   
+    virtual  void onPreRun() override;
     void run();
-
-	virtual void onPostRun() override {
-        imgProcessed = true;
-        
-        
-        // TODO: check if ok: put your result in benchImage!
-	// Retrieving result
-	SAFE_CALL(cudaMemcpy(benchImage.ptr() , devImgPtr , imgSize ,cudaMemcpyDeviceToHost) , "CUDA Memcpy Host To Device Failed");
-
-	// Freeing device
-	SAFE_CALL(cudaFree(devImgPtr) , "CUDA Free Failed");
-	SAFE_CALL(cudaFree(devImmergedImgPtr) , "CUDA Free Failed");
-
-    }
+	virtual void onPostRun() override;
 
 };
 
