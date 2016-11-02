@@ -43,9 +43,9 @@ int main(int argc , char** argv) {
 
 	int choice = 0; // 0 = Dilation, otherwise = Erosion
 
-	img = launchKernel(img , immergedImg , choice);
+	//img = launchKernel(img , immergedImg , choice);
 	//img = launchKernel2(img , immergedImg , choice);
-	//img = launchKernel3(img , immergedImg , choice);
+	img = launchKernel3(img , immergedImg , choice);
 
 	resize(img , img , Size(img.cols/2 , img.rows/2));
 	imshow("Processed Img" , img);
