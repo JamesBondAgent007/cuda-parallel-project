@@ -9,13 +9,21 @@ CU_SRCS += \
 ../src/imProc/Device3.cu 
 
 CPP_SRCS += \
-../src/imProc/Host.cpp 
+../src/imProc/Host.cpp \
+../src/imProc/Image.cpp \
+../src/imProc/Matrix.cpp \
+../src/imProc/Point.cpp \
+../src/imProc/StructuringElement.cpp 
 
 OBJS += \
 ./src/imProc/Device.o \
 ./src/imProc/Device2.o \
 ./src/imProc/Device3.o \
-./src/imProc/Host.o 
+./src/imProc/Host.o \
+./src/imProc/Image.o \
+./src/imProc/Matrix.o \
+./src/imProc/Point.o \
+./src/imProc/StructuringElement.o 
 
 CU_DEPS += \
 ./src/imProc/Device.d \
@@ -23,7 +31,11 @@ CU_DEPS += \
 ./src/imProc/Device3.d 
 
 CPP_DEPS += \
-./src/imProc/Host.d 
+./src/imProc/Host.d \
+./src/imProc/Image.d \
+./src/imProc/Matrix.d \
+./src/imProc/Point.d \
+./src/imProc/StructuringElement.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

@@ -89,7 +89,7 @@ Mat BenchCuda::launchKernel(Mat& img , Mat& immergedImg , int choice) {
 
 
 // Cuda error handler
-static inline void BenchOOP::_safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
+static inline void BenchCUDA::_safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
 
 	if(err!=cudaSuccess)
 	{
@@ -103,7 +103,7 @@ static inline void BenchOOP::_safe_cuda_call(cudaError err, const char* msg, con
 
 
 // srcImg is the image with padding, dstImg is without padding
-__global__ void BenchOOP::basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
+__global__ void BenchCUDA::basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -127,7 +127,7 @@ __global__ void BenchOOP::basicDilation(uchar* srcImg , uchar* dstImg , int srcI
 };
 
 
-__global__ void BenchOOP::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
+__global__ void BenchCUDA::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;

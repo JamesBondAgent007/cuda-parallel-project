@@ -16,7 +16,7 @@ using namespace imProc;
 
 // Curiously recurring template pattern
 template <class T>
-class BencCuda : public convolutionBench::IConvBench<T>
+class BenchCUDA : public convolutionBench::IConvBench<T>
 {
     
 private:
@@ -25,8 +25,8 @@ private:
     static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number);
     #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
-    __global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
-    __global__ void BenchOOP::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
+    __global__ void BenchCUDA::basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
+    __global__ void BenchCUDA::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
     
     bool imgLoaded = false;
     bool imgProcessed = false;
@@ -44,7 +44,7 @@ protected:
 
 public:
 
-    BenchOOP() {}
+    BenchCUDA() {}
 
     virtual void init(std::string imgPath, uint threads, uint se_width, uint se_height, bool useThreadsAsDivisor) override {
         SE = StructuringElement(se_width, se_height);

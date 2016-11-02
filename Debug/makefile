@@ -12,6 +12,7 @@ RM := rm -rf
 -include src/utils/subdir.mk
 -include src/imProc/subdir.mk
 -include src/convolutionBench/subdir.mk
+-include src/BenchCuda/subdir.mk
 
 OS_SUFFIX := $(subst Linux,linux,$(subst Darwin/x86_64,darwin,$(shell uname -s)/$(shell uname -m)))
 

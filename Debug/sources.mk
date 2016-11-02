@@ -28,4 +28,5 @@ SUBDIRS := \
 src/utils \
 src/imProc \
 src/convolutionBench \
+src/BenchCuda \
 
