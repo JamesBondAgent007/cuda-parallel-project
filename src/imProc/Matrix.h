@@ -56,7 +56,7 @@ namespace imProc {
 
 
         // Copy, Assignment, Move
-        Matrix(const Matrix<T>& m) : Matrix(m._rows, m._cols ){
+        Matrix(const Matrix<T>& m) : Matrix<T>(m._rows, m._cols ) {
             for (int i = 0; i < _rows*_cols; i++)
                 _pmat[i] = m._pmat[i];
         }

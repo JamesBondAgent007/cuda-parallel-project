@@ -88,8 +88,9 @@ Mat BenchCuda::launchKernel(Mat& img , Mat& immergedImg , int choice) {
 
 
 
+/*
 // Cuda error handler
-static inline void BenchCUDA::_safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
+static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number) {
 
 	if(err!=cudaSuccess)
 	{
@@ -99,11 +100,12 @@ static inline void BenchCUDA::_safe_cuda_call(cudaError err, const char* msg, co
 	}
 
 }
+*/
 
 
 
 // srcImg is the image with padding, dstImg is without padding
-__global__ void BenchCUDA::basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
+__global__ void basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -127,7 +129,7 @@ __global__ void BenchCUDA::basicDilation(uchar* srcImg , uchar* dstImg , int src
 };
 
 
-__global__ void BenchCUDA::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
+__global__ void basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH) {
 
 	const int tx = blockIdx.x * blockDim.x + threadIdx.x;
 	const int ty = blockIdx.y * blockDim.y + threadIdx.y;
@@ -149,4 +151,21 @@ __global__ void BenchCUDA::basicErosion(uchar* srcImg , uchar* dstImg , int srcI
 	dstImg[ty * dstImgCols + tx] = max;
 
 };
+
+
+
+
+
+void  BenchCuda::run() {
+    // TODO check params
+    basicDilation<<<gridDim , blockDim>>>(devImmergedImgPtr ,
+                                            devImgPtr ,
+                                            immergedImg.cols ,
+                                            benchImage.rows ,
+                                            benchImage.cols,
+                                            seWidth,
+                                            seHeight);
+    // Checking for Kernel launch errors and wait for Device job to be done.
+SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");
+}
 

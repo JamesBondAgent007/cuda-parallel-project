@@ -13,21 +13,17 @@
 
 using namespace imProc;
 
+#define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
 
 // Curiously recurring template pattern
-template <class T>
-class BenchCUDA : public convolutionBench::IConvBench<T>
+class BenchCuda : public convolutionBench::IConvBench<BenchCuda>
 {
     
 private:
      
     // Cuda error handler
-    static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number);
-    #define SAFE_CALL(call,msg) _safe_cuda_call((call),(msg),__FILE__,__LINE__)
+    //static inline void _safe_cuda_call(cudaError err, const char* msg, const char* file_name, const int line_number);
 
-    __global__ void BenchCUDA::basicDilation(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
-    __global__ void BenchCUDA::basicErosion(uchar* srcImg , uchar* dstImg , int srcImgCols , int dstImgRows , int dstImgCols, int seW, int seH);
-    
     bool imgLoaded = false;
     bool imgProcessed = false;
     uint nThreads = 0;
@@ -44,7 +40,7 @@ protected:
 
 public:
 
-    BenchCUDA() {}
+    BenchCuda() {}
 
     virtual void init(std::string imgPath, uint threads, uint se_width, uint se_height, bool useThreadsAsDivisor) override {
         SE = StructuringElement(se_width, se_height);
@@ -132,20 +128,9 @@ public:
         
     }
    
-    void run() {
-        // TODO check params
-        basicDilation<<<gridDim , blockDim>>>(devImmergedImgPtr ,
-                                                devImgPtr ,
-                                                immergedImg.cols ,
-                                                benchImage.rows ,
-                                                benchImage.cols,
-                                                seWidth,
-                                                seHeight);
-        // Checking for Kernel launch errors and wait for Device job to be done.
-	SAFE_CALL(cudaDeviceSynchronize() , "Kernel Launch Failed");
-    }
-    
-     virtual void onPostRun() override {
+    void run();
+
+	virtual void onPostRun() override {
         imgProcessed = true;
         
         
